@@ -1,0 +1,22 @@
+# Author: Douglas Onkeo
+image:
+  pullPolicy: Always
+service:
+  type: ClusterIP
+  port: 8080
+container:
+  port: 8080
+replicaCount:
+  minReplicas: 1
+  maxReplicas: 1
+  prodMinReplicas: 2
+  prodMaxReplicas: 10
+resources:
+  requestsMemory: '512Mi'
+  requestsCpu: '100m'
+  limitsMemory: '1024Mi'
+  limitsCpu: '150m'
+  prodRequestsMemory: '2048Mi'
+  prodRequestsCpu: '400m'
+  prodLimitsMemory: '3072Mi'
+  prodLimitsCpu: '600m'

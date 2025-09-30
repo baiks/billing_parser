@@ -1,0 +1,12 @@
+{
+  "connectionString":"InstrumentationKey=9bce2afb-0f4f-4851-a86f-ab5ffb575079;IngestionEndpoint=https://westeurope-2.in.applicationinsights.azure.com/",
+  "role": {
+    "name": "Billing-Parsers-Service"
+  },
+  "instrumentation": {
+    "logging": {
+      "level": "DEBUG"
+    }
+  }
+}
+

@@ -1,0 +1,184 @@
+# Author: Douglas Asiago
+trigger:
+  branches:
+    include:
+    - master
+    - relv2
+    - rel
+    - develop
+    - feature/ci-yaml
+ 
+variables:
+  dockerRegistryServiceConnection: 'acromnichannel'
+  containerRegistry: 'acromnichannel.azurecr.io'
+  appName: 'billing-parser'
+  namespace: 'billing'
+  pilotNamespace: 'pilot'
+  subscription: 'Enterprise Core'
+  vmImageName: 'ubuntu-latest'
+  buildConfiguration: 'Release'
+  dockerfilePath: '**/Dockerfile'
+  tag: '$(Build.BuildId)'
+  # javaJDKVersion: 1.17
+  javaJDKVersion: 1.17
+
+resources:
+  repositories:
+  - repository: templates
+    type: git
+    name: Billing/BuildTemplates
+
+stages:
+  - stage: DEV
+    displayName: Build DEV
+    dependsOn: []
+    condition: and(always(), contains(variables['Build.SourceBranch'], 'refs/heads/develop'))
+    jobs:
+      - template: java-azure-build-template.yaml@templates
+        parameters:
+          environment: 'dev'
+          vmImageName: $(vmImageName)
+          subscription: $(subscription)
+          dockerRegistryServiceConnection: $(dockerRegistryServiceConnection)
+          keyVault: 'kv-dev-billing'
+          imageRepository: 'parsers-service-dev'
+          dockerfilePath: $(dockerfilePath)
+          containerRegistry: $(containerRegistry)
+          tag: $(tag)
+          appName: $(appName)
+          namespace: $(namespace)
+          javaJDKVersion: $(javaJDKVersion)
+          springProfileActive: "dev"
+          # runImageScan: false
+  
+  # Release Dev
+  - stage: DEV_RELEASE
+    displayName: Deploy DEV 
+    dependsOn: DEV
+    condition: and(succeeded(),  contains(variables['Build.SourceBranch'], 'refs/heads/develop'))
+    jobs:
+      - template: kubernetes-release-template.yaml@templates
+        parameters:
+          environment: 'dev'
+          appName: $(appName)
+          vmImageName: $(vmImageName)
+          kubernetesCluster: 'aks-omnichannel-dev-001'
+          azureResourceGroup: 'RSG-DEV-OMNI-WE'
+          namespace: $(namespace)
+          serviceConnection: $(subscription)
+          azureSubscriptionEndpointForSecrets: 'OMNICHANNEL-DEV'        
+
+  - stage: UAT
+    displayName: Build UAT
+    dependsOn: []
+    condition: and(always(), contains(variables['Build.SourceBranch'], 'refs/heads/rel'))
+    jobs:
+      - template: java-azure-build-template.yaml@templates
+        parameters:
+          environment: 'uat'
+          vmImageName: $(vmImageName)
+          subscription: $(subscription)
+          dockerRegistryServiceConnection: $(dockerRegistryServiceConnection)
+          keyVault: 'kv-uat-billing'
+          imageRepository: 'parsers-service-uat'
+          dockerfilePath: $(dockerfilePath)
+          containerRegistry: $(containerRegistry)
+          tag: $(tag)
+          appName: $(appName)
+          namespace: omnichannel
+          javaJDKVersion: $(javaJDKVersion)
+          springProfileActive: "uat"
+
+    #Release UAT
+  - stage: UAT_RELEASE
+    displayName: Deploy UAT 
+    dependsOn: UAT
+    condition: and(succeeded(),  contains(variables['Build.SourceBranch'], 'refs/heads/rel'))
+    jobs:
+      - template: kubernetes-release-template.yaml@templates
+        parameters:
+          environment: 'uat'
+          appName: $(appName)
+          vmImageName: $(vmImageName)
+          kubernetesCluster: 'aks-omnichannel-uat-001'
+          azureResourceGroup: 'RSG-UAT-OMNI-WE'
+          namespace: omnichannel
+          serviceConnection: $(subscription)
+          azureSubscriptionEndpointForSecrets: 'OMNICHANNEL-UAT'        
+
+  - stage: PILOT
+    displayName: Build Pilot
+    dependsOn: []
+    condition: and(always(), contains(variables['Build.SourceBranch'], 'refs/heads/pilot'))
+    jobs:
+      - template: java-azure-build-template.yaml@templates
+        parameters:
+          environment: 'pilot'
+          vmImageName: $(vmImageName)
+          subscription: $(subscription)
+          dockerRegistryServiceConnection: $(dockerRegistryServiceConnection)
+          keyVault: 'kv-preprod-billing'
+          imageRepository: 'parsers-service-preprod'
+          dockerfilePath: $(dockerfilePath)
+          containerRegistry: $(containerRegistry)
+          tag: $(tag)
+          appName: $(appName)
+          namespace: $(namespace)
+          javaJDKVersion: $(javaJDKVersion)
+          springProfileActive: "pilot"
+          # runImageScan: false
+
+    #Release PILOT
+  - stage: PILOT_RELEASE
+    displayName: Deploy PILOT TO ENVIRONMENT 
+    dependsOn: PILOT
+    condition: and(succeeded(),  contains(variables['Build.SourceBranch'], 'refs/heads/pilot'))
+    jobs:
+      - template: kubernetes-release-template.yaml@templates
+        parameters:
+          environment: 'pilot'
+          appName: $(appName)
+          vmImageName: $(vmImageName)
+          kubernetesCluster: 'aks-omnichannel-prod-001'
+          azureResourceGroup: 'RSG-prod-OMNI-WE'
+          namespace: $(namespace)
+          serviceConnection: $(subscription)
+          azureSubscriptionEndpointForSecrets: 'OMNICHANNEL-prod'        
+
+  - stage: PROD
+    displayName: Build Production  
+    dependsOn: []  
+    condition: and(always(), contains(variables['Build.SourceBranch'], 'refs/heads/master'))
+    jobs:
+      - template: java-azure-build-template.yaml@templates
+        parameters:
+          environment: 'prod'
+          vmImageName: $(vmImageName)
+          subscription: $(subscription)
+          dockerRegistryServiceConnection: $(dockerRegistryServiceConnection)
+          keyVault: 'kv-prod-billing'
+          imageRepository: 'parsers-service-prod'
+          dockerfilePath: $(dockerfilePath)
+          containerRegistry: $(containerRegistry)
+          tag: $(tag)
+          appName: $(appName)
+          namespace: $(namespace)
+          javaJDKVersion: $(javaJDKVersion)
+          springProfileActive: "prod"
+
+    #Release PROD
+  - stage: PROD_RELEASE
+    displayName: Deploy PROD ENVIRONMENT 
+    dependsOn: PROD
+    condition: and(succeeded(),  contains(variables['Build.SourceBranch'], 'refs/heads/master'))
+    jobs:
+      - template: kubernetes-release-template.yaml@templates
+        parameters:
+          environment: 'prod'
+          appName: $(appName)
+          vmImageName: $(vmImageName)
+          kubernetesCluster: 'aks-omnichannel-preprod-001'
+          azureResourceGroup: 'RSG-preprod-OMNI-WE'
+          namespace: $(namespace)
+          serviceConnection: $(subscription)
+          azureSubscriptionEndpointForSecrets: 'OMNICHANNEL-preprod'
